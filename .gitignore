@@ -9,3 +9,6 @@ __pycache__/
 
 # Ignore test_outputs
 /test_outputs/*
+
+# Ignore test_outputs
+/.vscode/*
