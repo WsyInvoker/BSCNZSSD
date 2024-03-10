@@ -1,0 +1,11 @@
+# Ignore __pycache__ folders
+__pycache__/
+
+# Ignore all .log files
+*.log
+
+# Ignore log dir
+/log/*
+
+# Ignore test_outputs
+/test_outputs/*
