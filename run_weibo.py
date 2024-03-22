@@ -6,6 +6,7 @@ import torch
 from torch import optim
 import random
 import numpy as np
+import tensorflow as tf
 from utils.criterion import TraditionCriterion, Stance_loss
 from torch.utils.data import RandomSampler, DataLoader
 from tensorboardX import SummaryWriter
@@ -66,12 +67,15 @@ class Instructor(object):
 
 
     def run_tradition(self):
-        best_acc, best_f1 = self.train_traditon()
+        writer1 = SummaryWriter('runs')
+        best_acc, best_f1 = self.train_traditon(writer1)
         state_dict_dir = opt.output_dir + "/state_dict"
         # print("\n\nReload the best model with best acc {} from path {}\n\n".format(best_acc, state_dict_dir))
         # ckpt = torch.load(os.path.join(state_dict_dir, "best_acc_model.bin"))
         # self.model.load_state_dict(ckpt)
         # acc,f1,report,f1_ma = self.test_tradition()
+
+        writer1.close()
 
         print("\n\nReload the best model with best f1 {} from path {}\n\n".format(best_f1, state_dict_dir))
         ckpt = torch.load(os.path.join(state_dict_dir, "best_f1_model.bin"))        #加载同一次运行时上一代的.bin
@@ -196,7 +200,7 @@ class Instructor(object):
     
     
 
-    def train_traditon(self):
+    def train_traditon(self,writer1):
         def text_labels_to_tensor(labels_list):
             return torch.tensor(labels_list, dtype=torch.long)
         
@@ -267,8 +271,15 @@ class Instructor(object):
                     # target_loss = self.target_criterion(feature, true_stance,true_targets)
                     loss = logits_loss + stance_loss * self.opt.stance_loss_weight + prototype_loss * self.opt.prototype_loss_weight
                 elif 'cross' in self.opt.model_name:
+                    # print("type of input_features: ", type(input_features))
+                    # print("input_features: ", input_features)
+                    
+                    # print("item type of input_features: ", [type(item) for item in input_features])
+                    # print("input_features:")
+                    # for i, feature in enumerate(input_features):
+                    #     print(f"Index: {i}, Feature: {feature}")
                     feature, logits = self.model(input_features)
-                    # print("#### second logits: ",logits)
+                    print("#### second logits: ",logits)
                     logits_loss = self.logits_criterion(logits, true_stance)
                     stance_loss = self.stance_criterion(feature,true_stance)
                     loss = logits_loss + stance_loss * self.opt.stance_loss_weight
@@ -315,9 +326,20 @@ class Instructor(object):
                             os.makedirs(state_dict_dir)
                         torch.save(self.model.state_dict(), os.path.join(state_dict_dir, "best_f1_model.bin"))
                         self.test_tradition()
+                writer1.add_scalar('best_acc/train', train_acc, i_epoch)
+                writer1.add_scalar('best_f1/train', best_f1, i_epoch)
+                writer1.add_scalar('train_loss/train', train_loss, i_epoch)
+                writer1.add_scalar('loss/train', loss, i_epoch)
+                writer1.add_scalar('stance_loss/train', stance_loss, i_epoch)
                 cnt += 1
         print("Training finished.")
+        print(f"state_dict_dir: {state_dict_dir}")
+        # 保存模型的路径
+        model_save_path = os.path.join(state_dict_dir, "my_model.pth")
+        torch.save(self.model.state_dict(),model_save_path)
+        print(f"Model saved to: {model_save_path}")
         return best_acc, best_f1
+    
     def dev_tradition(self):
         self.model.eval()
         sampler = RandomSampler(self.testset)
@@ -433,15 +455,15 @@ if __name__ == "__main__":
     # config
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--model_name', default='bert-cross-topic', type=str,required=False)
-    parser.add_argument('--type', default=0, help='2 for all,0 for zero shot ,1 for few shot',type=str, required=False)
+    parser.add_argument('--model_name', default='bert-cross-topic', type=str,required=False)    # bert-cross-topic, bert-scl-prototype-graph
+    parser.add_argument('--type', default=1, help='2 for all,0 for zero shot ,1 for few shot',type=str, required=False)
     parser.add_argument('--dataset', default='weibo', type=str,required=False)  #数据集选择原为fm_la
     parser.add_argument('--output_par_dir',default='test_outputs',type=str)
     parser.add_argument('--polarities', default='weibo_bs', nargs='+', help="if just two polarity switch to ['positive', 'negtive']",required=False)     #sem16_naacl
     parser.add_argument('--optimizer', default='adam', type=str,required=False)
     parser.add_argument('--temperature', default=0.07, type=float,required=False)
     parser.add_argument('--initializer', default='xavier_uniform_', type=str,required=False)
-    parser.add_argument('--lr', default=5e-6, type=float, help='try 5e-5, 2e-5, 1e-3 for others',required=False)
+    parser.add_argument('--lr', default=5e-5, type=float, help='try 5e-5, 2e-5, 1e-3 for others',required=False)
     parser.add_argument('--dropout', default=0.1, type=float,required=False)
     parser.add_argument('--l2reg', default=1e-5, type=float,required=False)
     parser.add_argument('--log_step', default=10, type=int,required=False)
@@ -452,7 +474,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_dim', default=64, type=int,required=False)
     parser.add_argument('--relation_dim',default=100,type=int,required=False)
     parser.add_argument('--bert_dim', default=768, type=int,required=False)
-    parser.add_argument('--pretrained_bert_name', default='bert-base-uncased', type=str,required=False)      #bert-base-chinese
+    parser.add_argument('--pretrained_bert_name', default='bert-base-chinese', type=str,required=False)      #bert-base-chinese
     parser.add_argument('--max_seq_len', default=85, type=int,required=False)
     parser.add_argument('--stance_loss_weight',default=0.5,type=float,required=False)
     parser.add_argument('--prototype_loss_weight',default=0.01,type=float,required=False)
@@ -463,7 +485,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=1, type=int, help='set seed for reproducibility')
     parser.add_argument("--batch_size", default=16, type=int, required=False)
     parser.add_argument("--eval_batch_size", default=16, type=int, required=False)
-    parser.add_argument("--epochs", default=5, type=int, required=False)        #15
+    parser.add_argument("--epochs", default=2, type=int, required=False)        #15
     parser.add_argument("--eval_steps", default=10, type=int, required=False)
     parser.add_argument("--cluster_times", default=1, type=int, required=False)
 

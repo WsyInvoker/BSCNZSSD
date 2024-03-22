@@ -7,6 +7,9 @@ __pycache__/
 # Ignore log dir
 /log/*
 
+# Ignore acc
+/runs/*
+
 # Ignore test_outputs
 /test_outputs/*
 

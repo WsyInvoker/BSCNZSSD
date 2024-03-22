@@ -636,9 +636,6 @@ class weiboDataset(Dataset):
                   '开放 二胎',]
         topic2index = {topic: idx for idx, topic in enumerate(topics)}
         polarity_mapping = {0: "反对", 1: "中立", 2: "支持"}
-        # print("topic2index dictionary:")
-        # for key, value in topic2index.items():
-        #     print(f"{key}: {value}")
 
         for i in range(0, len(lines), 3):
             text = lines[i].strip()
@@ -654,7 +651,12 @@ class weiboDataset(Dataset):
             concat_segments_indices = [0] * (text_len + 2) + [1] * (target_len + 1)
             concat_segments_indices = pad_and_truncate(concat_segments_indices, tokenizer.max_seq_len)
             text_bert_indices = tokenizer.text_to_sequence("[CLS] " + text + " [SEP]")
+            # print("text_bert_indices:")
+            # print(text_bert_indices)
+            # print(type(text_bert_indices))
             target_bert_indices = tokenizer.text_to_sequence("[CLS] " + target + " [SEP]")
+            # print("target_bert_indices:")
+            # print(target_bert_indices)
             if target not in topic2index:
                 print(f"Target '{target}' not found in topic2index dictionary!")
                 # 可以选择在这里中断程序，或者进行其他错误处理
